@@ -2,6 +2,9 @@ const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 
+//import bcrypt.js hashing library
+const bcrypt = require('bcryptjs');
+
 const db = require('./database/dbConfig.js');
 const Users = require('./users/users-model.js');
 
@@ -18,6 +21,12 @@ server.get('/', (req, res) => {
 server.post('/api/register', (req, res) => {
   let user = req.body;
 
+  //hash password 2^12 times, and don't proceed in rest of program until password is hashed
+  const hash = bcrypt.hashSync(user.password, 12);
+
+  //overwrite use password with hash
+  user.password = hash;
+
   Users.add(user)
     .then(saved => {
       res.status(201).json(saved);
@@ -33,7 +42,7 @@ server.post('/api/login', (req, res) => {
   Users.findBy({ username })
     .first()
     .then(user => {
-      if (user) {
+      if (user && bcrypt.compareSync(password, user.password)) {
         res.status(200).json({ message: `Welcome ${user.username}!` });
       } else {
         res.status(401).json({ message: 'Invalid Credentials' });
@@ -44,6 +53,7 @@ server.post('/api/login', (req, res) => {
     });
 });
 
+//this endpoint should be protected
 server.get('/api/users', (req, res) => {
   Users.find()
     .then(users => {
